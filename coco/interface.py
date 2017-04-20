@@ -66,19 +66,11 @@ class SSHInterface(paramiko.ServerInterface):
             return False
 
     def check_auth_password(self, username, password):
-        if self.check_auth(username, password=password):
-            logger.info('Accepted password for %(username)s from %(host)s' % {
-                'username': username,
-                'host': request.environ['REMOTE_ADDR'],
-            })
-            return paramiko.AUTH_SUCCESSFUL
-        else:
-            logger.info('Authentication password failed for '
-                        '%(username)s from %(host)s' % {
-                            'username': username,
-                            'host': request.environ['REMOTE_ADDR'],
-                         })
-        return paramiko.AUTH_FAILED
+        self.check_auth(username, password=password)
+
+        # any password is ok, auth by token in the follow steps
+        return paramiko.AUTH_SUCCESSFUL
+
 
     def check_auth_publickey(self, username, public_key):
         """登录时首先会使用公钥认证, 会自动扫描家目录的私钥,

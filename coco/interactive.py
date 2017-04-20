@@ -7,6 +7,9 @@ import socket
 import logging
 import threading
 
+import requests
+from dotmap import DotMap
+
 from .proxy import ProxyServer
 from .globals import request, g
 from jms.utils import TtyIOParser
@@ -35,9 +38,9 @@ class InteractiveServer(object):
         self.backend_server = None
         self.client_channel = g.client_channel
         self.backend_channel = None
-        self.user = request.user
-        self.assets = self.get_my_assets()
-        self.asset_groups = self.get_my_asset_groups()
+        #self.user = request.user
+        #self.assets = self.get_my_assets()
+        #self.asset_groups = self.get_my_asset_groups()
         self.search_result = []
 
     def display_banner(self):
@@ -60,7 +63,7 @@ class InteractiveServer(object):
         """实现了一个ssh input, 提示用户输入, 获取并返回"""
         input_data = []
         parser = TtyIOParser(request.win_width, request.win_height)
-        g.client_channel.send(wr(prompt, before=1, after=0))
+        g.client_channel.send(wr('Token>', before=1, after=0))
         while True:
             r, w, x = select.select([g.client_channel], [], [])
             if g.client_channel in r:
@@ -79,6 +82,40 @@ class InteractiveServer(object):
                     g.client_channel.send('')
                     continue
 
+
+                is_auth = True
+                try:
+                    is_auth = g.user_service.is_authenticated()
+                except Exception as e:
+                    is_auth = False
+
+                if not is_auth and len(data) > 0:
+                    token = data.strip()
+                    g.user_service.auth(token=token)
+                    if g.user_service.is_authenticated():
+                        url = '%s/api/users/v1/profile' % (self.app.config['JUMPSERVER_ENDPOINT'])
+                        h = {
+                            'Authorization': 'Bearer %s' % (token)
+                        }
+                        resp = requests.get(url, headers=h)
+                        if not resp.ok:
+                            g.client_channel.close()
+
+                        request.user = DotMap(resp.json())
+                        g.client_channel.send('check pass')
+
+                        self.user = request.user
+                        self.assets = self.get_my_assets()
+                        self.asset_groups = self.get_my_asset_groups()
+
+                        g.client_channel.send(wr(prompt, before=1, after=0))
+                        continue
+                    else:
+                        print('token checked failed')
+                        g.client_channel.send('token checked failed')
+                        g.client_channel.close()
+
+
                 # handle shell expect
                 multi_char_with_enter = False
                 if len(data) > 1 and data[-1] in self.ENTER_CHAR:
@@ -90,6 +127,10 @@ class InteractiveServer(object):
                 if data in self.ENTER_CHAR or multi_char_with_enter:
                     g.client_channel.send(wr('', after=2))
                     option = parser.parse_input(b''.join(input_data))
+
+                    self.assets = self.get_my_assets()
+                    self.asset_groups = self.get_my_asset_groups()
+
                     return option.strip()
                 else:
                     g.client_channel.send(data)
@@ -241,9 +282,21 @@ class InteractiveServer(object):
                 g.client_channel.send(
                     wr(warning('No system user match, please input again')))
 
+    def search_assets_by_id(self, option):
+        if not option.isdigit():
+            g.client_channel.send(wr('"%s" is not a correct asset id' % option))
+            self.search_result = []
+            return
+
+        asset_id = int(option)
+        match_assets = [asset for asset in self.assets if asset.id == asset_id]
+        self.search_result = match_assets
+
     def search_and_proxy(self, option, from_result=False):
         """搜索并登录资产"""
-        self.search_assets(option=option, from_result=from_result)
+        #self.search_assets(option=option, from_result=from_result)
+        self.search_assets_by_id(option)
+
         if len(self.search_result) == 1:
             request.asset = asset = self.search_result[0]
             if len(asset.system_users) == 1:
@@ -279,25 +332,31 @@ class InteractiveServer(object):
         if g.client_channel is None:
             return
 
-        self.display_banner()
-        while True:
-            try:
-                self.dispatch()
-            except socket.error:
-                self.logout()
-                break
+        #self.display_banner()
+        #while True:
+        try:
+            self.dispatch()
+            self.logout()
+            sys.exit()
+        except socket.error as e:
+            self.logout()
+            #break
 
     def logout(self):
-        logger.info('Logout from jumpserver %(host)s: %(username)s' % {
-            'host': request.environ['REMOTE_ADDR'],
-            'username': request.user.username,
-        })
+        username = getattr(request.user, 'username', None)
+        if username:
+            logger.info('Logout from jumpserver %(host)s: %(username)s' % {
+                'host': request.environ['REMOTE_ADDR'],
+                'username': request.user.username,
+            })
+
         # if request.get('proxy_log_id', ''):
         #     data = {
         #         'proxy_log_id': request.proxy_log_id,
         #         'date_finished': datetime.datetime.utcnow(),
         #     }
         #  api.finish_proxy_log(data)
+
         g.client_channel.close()
         del self
 
