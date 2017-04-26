@@ -48,11 +48,8 @@ class InteractiveServer(object):
         3) 输入 \033[32mP/p\033[0m 显示您有权限的主机.\r
         4) 输入 \033[32mG/g\033[0m 显示您有权限的主机组.\r
         5) 输入 \033[32mG/g\033[0m\033[0m + \033[32m组ID\033[0m 显示该组下主机. 如: g1\r
-        6) 输入 \033[32mE/e\033[0m 批量执行命令.\r
-        7) 输入 \033[32mU/u\033[0m 批量上传文件.\r
-        8) 输入 \033[32mD/d\033[0m 批量下载文件.\r
-        9) 输入 \033[32mH/h\033[0m 帮助.\r
-        0) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % request.user.username
+        6) 输入 \033[32mH/h\033[0m 帮助.\r
+        7) 输入 \033[32mQ/q\033[0m 退出.\r\n""" % request.user.username
 
         g.client_channel.send(msg)
 
