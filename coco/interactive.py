@@ -1,4 +1,5 @@
 # ~*~ coding: utf-8 ~*~
+from __future__ import unicode_literals
 
 import sys
 import select
@@ -6,6 +7,7 @@ import re
 import socket
 import logging
 import threading
+import copy
 
 from .proxy import ProxyServer
 from .globals import request, g
@@ -188,10 +190,13 @@ class InteractiveServer(object):
                 asset_group = self.asset_groups[int(index)]
                 self.search_result = g.user_service.\
                     get_assets_in_group(asset_group.id)
+                self.search_result = self._fix_sdk_bug_get_assets_in_group(self.search_result)
                 self.display_search_result()
+                s = '已选择 \033[32m' + asset_group.name + '\033[0m 主机组，请输入对应 \033[32mID\033[0m 进行登录\r\n'
+                g.client_channel.send(s)
                 self.dispatch(twice=True)
-        g.client_channel.send(wr(warning(
-            'No asset group match, please input again')))
+        else:
+            g.client_channel.send(wr(warning('未找到对应主机组，请重新输入')))
 
     def display_search_result(self):
         """打印搜索的结果"""
@@ -256,7 +261,7 @@ class InteractiveServer(object):
             self.return_to_proxy(asset, system_user)
         elif len(self.search_result) == 0:
             g.client_channel.send(
-                wr(warning('No asset match, please input again')))
+                wr(warning('未找到对应主机，请重新输入')))
             return self.dispatch()
         else:
             g.client_channel.send(
@@ -299,3 +304,7 @@ class InteractiveServer(object):
         del self
 
 
+    def _fix_sdk_bug_get_assets_in_group(self, result):
+        for asset in result:
+            asset.system_users = copy.deepcopy(asset.system_users_granted)
+        return result
