@@ -5,10 +5,10 @@ import sys
 import select
 import re
 import socket
-import logging
 import threading
 import copy
 
+from logger import get_logger
 from .proxy import ProxyServer
 from .globals import request, g
 from jms.utils import TtyIOParser
@@ -16,7 +16,7 @@ from .utils import system_user_max_length, max_length
 from jms.utils import wrap_with_line_feed as wr, wrap_with_primary as primary,\
     wrap_with_warning as warning, wrap_with_title as title
 
-logger = logging.getLogger(__file__)
+logger = get_logger(__file__)
 
 
 class InteractiveServer(object):
@@ -31,8 +31,9 @@ class InteractiveServer(object):
     CLEAR_CHAR = '\x1b[H\x1b[2J'
     BELL_CHAR = b'\x07'
 
-    def __init__(self, app):
+    def __init__(self, app, user_service):
         self.app = app
+        self.user_service = user_service
         self.service = app.service
         self.backend_server = None
         self.client_channel = g.client_channel
@@ -155,14 +156,12 @@ class InteractiveServer(object):
         """打印用户所有资产"""
         self.search_and_display('')
 
-    @staticmethod
-    def get_my_asset_groups():
+    def get_my_asset_groups(self):
         """获取用户授权的资产组"""
-        return g.user_service.get_my_asset_groups()
+        return self.user_service.get_my_asset_groups()
 
-    @staticmethod
-    def get_my_assets():
-        return g.user_service.get_my_assets()
+    def get_my_assets(self):
+        return self.user_service.get_my_assets()
 
     def display_asset_groups(self):
         """打印授权的资产组"""
@@ -188,7 +187,7 @@ class InteractiveServer(object):
             index = match.groups()[0]
             if index.isdigit() and len(self.asset_groups) > int(index):
                 asset_group = self.asset_groups[int(index)]
-                self.search_result = g.user_service.\
+                self.search_result = self.user_service.\
                     get_assets_in_group(asset_group.id)
                 self.search_result = self._fix_sdk_bug_get_assets_in_group(self.search_result)
                 self.display_search_result()

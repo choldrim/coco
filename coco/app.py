@@ -130,7 +130,7 @@ class Coco(object):
 
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
-            InteractiveServer(self).run()
+            InteractiveServer(self, ssh_interface.user_service).run()
         elif request.method == 'command':
             _client_channel.send(wr(warning('We are not support command now')))
             _client_channel.close()
