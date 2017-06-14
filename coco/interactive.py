@@ -106,7 +106,9 @@ class InteractiveServer(object):
         直接搜索登录: 直接输入会搜索, 如果唯一则直接登录资产
         """
         option = self.get_input()
-        if option in ['P', 'p', '\r', '\n']:
+        option = option.strip()
+
+        if option in ['P', 'p']:
             self.search_and_display('')
         elif option.startswith('/'):
             option = option.lstrip('/')
@@ -118,7 +120,7 @@ class InteractiveServer(object):
         elif option in ['q', 'Q']:
             self.logout()
             sys.exit()
-        elif option in ['h', 'H']:
+        elif option in ['h', 'H', '']:
             return self.display_banner()
         else:
             return self.search_and_proxy(option=option, from_result=twice)
