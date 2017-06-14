@@ -222,6 +222,7 @@ class InteractiveServer(object):
                 line % (index, asset.ip, asset.port, asset.hostname,
                         system_users, asset.comment)))
         g.client_channel.send(wr(''))
+        self.dispatch(twice=True)
 
     def search_and_display(self, option):
         """搜索并打印资产"""
