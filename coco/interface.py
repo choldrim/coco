@@ -57,7 +57,6 @@ class SSHInterface(paramiko.ServerInterface):
             "public_key": public_key,
             "login_type": 'ST'
         }
-        import threading
         user, token = self.user_service.login(data)
         if user:
             request.user = user
