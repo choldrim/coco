@@ -122,22 +122,21 @@ class Coco(object):
         except paramiko.SSHException:
             logger.warning('SSH negotiation failed.')
 
-        _client_channel = transport.accept(20)
-        g.client_channel = _client_channel
-        if _client_channel is None:
+        client_channel = transport.accept(20)
+        if client_channel is None:
             logger.warning('No ssh channel get.')
             sys.exit(1)
 
         if request.method == 'shell':
             logger.info('Client asked for a shell.')
-            InteractiveServer(self, ssh_interface.user_service).run()
+            InteractiveServer(self, ssh_interface.user_service, client_channel).run()
         elif request.method == 'command':
-            _client_channel.send(wr(warning('We are not support command now')))
-            _client_channel.close()
+            client_channel.send(wr(warning('We are not support command now')))
+            client_channel.close()
             sys.exit(2)
         else:
-            _client_channel.send(wr(warning('Not support the request method')))
-            _client_channel.close()
+            client_channel.send(wr(warning('Not support the request method')))
+            client_channel.close()
             sys.exit(2)
 
         while True:

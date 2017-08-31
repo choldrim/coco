@@ -17,7 +17,7 @@ from logging.config import dictConfig
 try:
     import cStringIO as StringIO
 except ImportError:
-    import StringIO
+    from io import StringIO
 
 try:
     from collections import OrderedDict
