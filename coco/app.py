@@ -139,12 +139,6 @@ class Coco(object):
             client_channel.close()
             sys.exit(2)
 
-        while True:
-            if request.user is not None:
-                break
-            else:
-                time.sleep(0.2)
-
     def run_forever(self, **kwargs):
         self.bootstrap()
         host = kwargs.pop('host', None) or self.host
@@ -153,7 +147,7 @@ class Coco(object):
         self.sock = sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((host, port))
-        sock.listen(5)
+        sock.listen(100)
 
         print(time.ctime())
         print('Coco version %s, more see https://www.jumpserver.org' % __version__)
