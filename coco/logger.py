@@ -26,7 +26,6 @@ def create_logger():
     level = LOG_LEVELS.get(level, logging.INFO)
     log_dir = config.get('LOG_DIR', os.path.join(PROJECT_DIR, 'logs'))
     log_path = os.path.join(log_dir, 'coco.log')
-    #logger_root = logging.getLogger()
     logger = logging.getLogger('coco')
 
     main_formatter = logging.Formatter(
@@ -39,12 +38,12 @@ def create_logger():
     for handler in [console_handler, file_handler]:
         handler.setFormatter(main_formatter)
         logger.addHandler(handler)
-    #logger_root.addHandler(console_handler)
-    #logger_root.setLevel(logging.WARNING)
+
     logger.setLevel(level)
 
 
 def get_logger(name):
-    return logging.getLogger('coco.%s' % name)
+    logger = logging.getLogger('coco')
+    return logger
 
 create_logger()
