@@ -248,5 +248,8 @@ class ProxyServer(object):
         del self.app.proxy_list[self.proxy_log_id]
 
     def close(self):
-        self.backend_channel.close()
-        self.sel.close()
+        if self.backend_channel:
+            self.backend_channel.close()
+
+        if self.sel:
+            self.sel.close()
