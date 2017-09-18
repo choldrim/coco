@@ -62,6 +62,9 @@ class ProxyServer(object):
         self.sel = selectors.DefaultSelector()
 
     def is_finish_input(self, s):
+        if type(s) == bytes:
+            s = s.decode()
+
         for char in s:
             if char in self.ENTER_CHAR:
                 return True
