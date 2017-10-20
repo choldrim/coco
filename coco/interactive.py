@@ -42,7 +42,6 @@ class InteractiveServer(object):
         self.service = app.service
         self.backend_server = None
         self.client_channel = client_channel
-        self.backend_channel = None
         self.user = request.user
         self.assets = self.get_my_assets()
         self.asset_groups = self.get_my_asset_groups()
@@ -68,12 +67,6 @@ class InteractiveServer(object):
         self.client_channel.send(wr(prompt, before=1, after=0))
         while True:
             data = self.client_channel.recv(1024)
-
-            if self.change_win_size_event.is_set():
-                self.change_win_size_event.clear()
-                width = self.client_channel.win_width
-                height = self.client_channel.win_height
-                backend_channel.resize_pty(width=width, height=height)
 
             if data in self.BACKSPACE_CHAR:
                 # If input words less than 0, should send 'BELL'

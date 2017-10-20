@@ -12,6 +12,7 @@ from jms.utils import wrap_with_line_feed as wr, wrap_with_warning as warning
 from jms.utils import TtyIOParser
 
 from . import utils
+from .globals import request, g
 from .tasks import command_queue, record_queue
 from .logger import get_logger
 
@@ -42,7 +43,6 @@ class ProxyServer(object):
         self.system_user = system_user
         self.service = app.service
         self.client_channel = client_channel
-        self.change_win_size_event = threading.Event()
         self.stop_event = stop_event
 
         self.input = ''
@@ -164,10 +164,9 @@ class ProxyServer(object):
             self.service.finish_proxy_log(data)
             return None
 
-        self.backend_channel = channel = ssh.invoke_shell(
-            term=term, width=width, height=height)
-        channel.settimeout(100)
-        return channel
+        self.backend_channel = ssh.invoke_shell(term=term, width=width, height=height)
+        self.backend_channel.settimeout(100)
+        return self.backend_channel
 
     def is_match_ignore_command(self, data):
         for pattern in self.IGNORE_OUTPUT_COMMAND:
@@ -188,12 +187,11 @@ class ProxyServer(object):
         while not self.stop_event.set():
             events = self.sel.select()  # block
 
-            #if self.change_win_size_event.is_set():
-            #    self.change_win_size_event.clear()
-            #    width = self.client_channel.win_width
-            #    height = self.client_channel.win_height
-            #    backend_channel.resize_pty(width=width, height=height)
-
+            if request.change_win_size_event.is_set():
+                request.change_win_size_event.clear()
+                width = self.client_channel.win_width
+                height = self.client_channel.win_height
+                self.backend_channel.resize_pty(width=width, height=height)
 
             if  self.client_channel in [t[0].fileobj for t in events]:
                 # Get output of the command

@@ -128,7 +128,5 @@ class SSHInterface(paramiko.ServerInterface):
 
     def check_channel_window_change_request(self, channel, width,
                                             height, pixelwidth, pixelheight):
-        request.win_width = channel.win_width = width
-        request.win_width = channel.win_height = height
         request.change_win_size_event.set()
         return True
