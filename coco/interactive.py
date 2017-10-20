@@ -137,6 +137,7 @@ class InteractiveServer(object):
         else:
             return self.search_and_proxy(option=option, from_result=twice)
 
+
     def search_assets(self, option, from_result=False):
         """搜索资产
         :param option: 搜索内容
@@ -201,13 +202,11 @@ class InteractiveServer(object):
             index = match.groups()[0]
             if index.isdigit() and len(self.asset_groups) > int(index):
                 asset_group = self.asset_groups[int(index)]
-                self.search_result = self.user_service.\
-                    get_assets_in_group(asset_group.id)
-                self.search_result = self._fix_sdk_bug_get_assets_in_group(self.search_result)
-                self.display_search_result()
+                _search_result = self.user_service.get_assets_in_group(asset_group.id)
+                self.search_result = self._fix_sdk_bug_get_assets_in_group(_search_result)
                 s = '已选择 \033[32m' + asset_group.name + '\033[0m 主机组，请输入对应 \033[32mID\033[0m 进行登录\r\n'
                 self.client_channel.send(s)
-                self.dispatch(twice=True)
+                self.display_search_result()
         else:
             self.client_channel.send(wr(warning('未找到对应主机组，请重新输入')))
 
@@ -254,8 +253,7 @@ class InteractiveServer(object):
             elif option in ['q', 'Q']:
                 return None
             else:
-                self.client_channel.send(
-                    wr(warning('No system user match, please input again')))
+                self.client_channel.send(wr(warning('该资产暂时没有分配可登录的系统用户，请联系运维人员')))
 
     def search_and_proxy(self, option, from_result=False):
         """搜索并登录资产"""
@@ -266,7 +264,7 @@ class InteractiveServer(object):
                 system_user = asset.system_users[0]
             else:
                 self.client_channel.send(
-                    wr(primary('More than one system user granted, select one')))
+                    wr(primary('该资产有授权了多个系统用户，请选择一个用户进行登录')))
                 system_user = self.choose_system_user(asset.system_users)
                 if system_user is None:
                     return self.dispatch()
@@ -274,15 +272,11 @@ class InteractiveServer(object):
             request.system_user = system_user
             self.return_to_proxy(asset, system_user)
         elif len(self.search_result) == 0:
-            self.client_channel.send(
-                wr(warning('未找到对应主机，请重新输入')))
+            self.client_channel.send(wr(warning('未找到对应主机，请重新输入')))
             return self.dispatch()
         else:
-            self.client_channel.send(
-                wr(primary('Search result is not unique, '
-                           'select below or search again'), after=2))
             self.display_search_result()
-            self.dispatch(twice=True)
+            self.dispatch()
 
     def return_to_proxy(self, asset, system_user):
         """开始登录资产, 使用ProxyServer连接到后端资产"""
