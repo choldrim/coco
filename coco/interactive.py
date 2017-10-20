@@ -5,7 +5,6 @@ import re
 import socket
 import threading
 import copy
-import selectors
 
 from jms.utils import TtyIOParser
 from jms.utils import wrap_with_line_feed as wr, wrap_with_primary as primary,\
@@ -48,7 +47,6 @@ class InteractiveServer(object):
         self.assets = self.get_my_assets()
         self.asset_groups = self.get_my_asset_groups()
         self.search_result = []
-        self.sel = selectors.DefaultSelector()
         self.parser = TtyIOParser(request.win_width, request.win_height)
 
     def display_banner(self):
@@ -69,12 +67,14 @@ class InteractiveServer(object):
         input_data = []
         self.client_channel.send(wr(prompt, before=1, after=0))
         while True:
-            events = self.sel.select()  # block
-
-            if  self.client_channel not in [t[0].fileobj for t in events]:
-                continue
-
             data = self.client_channel.recv(1024)
+
+            if self.change_win_size_event.is_set():
+                self.change_win_size_event.clear()
+                width = self.client_channel.win_width
+                height = self.client_channel.win_height
+                backend_channel.resize_pty(width=width, height=height)
+
             if data in self.BACKSPACE_CHAR:
                 # If input words less than 0, should send 'BELL'
                 if len(input_data) > 0:
@@ -304,7 +304,6 @@ class InteractiveServer(object):
             return
 
         self.display_banner()
-        self.sel.register(self.client_channel, selectors.EVENT_READ)
 
         while True:
             try:
@@ -328,7 +327,6 @@ class InteractiveServer(object):
         #     }
         #  api.finish_proxy_log(data)
         self.client_channel.close()
-        self.sel.close()
 
     def _fix_sdk_bug_get_assets_in_group(self, result):
         for asset in result:
