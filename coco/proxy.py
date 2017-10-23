@@ -1,7 +1,8 @@
 # ~*~ coding: utf-8 ~*~
 
-import re
+import chardet
 import logging
+import re
 import threading
 import time
 import socket
@@ -63,7 +64,11 @@ class ProxyServer(object):
 
     def is_finish_input(self, s):
         if type(s) == bytes:
-            s = s.decode()
+            try:
+                dete_result = chardet.detect(s)
+                s = s.decode(dete_result.get('encoding', 'utf-8'))
+            except Exception:
+                s = ''
 
         for char in s:
             if char in self.ENTER_CHAR:
