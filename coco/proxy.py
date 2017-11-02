@@ -3,10 +3,11 @@
 import chardet
 import logging
 import re
-import threading
-import time
 import socket
 import selectors
+import traceback
+import threading
+import time
 
 import paramiko
 from jms.utils import wrap_with_line_feed as wr, wrap_with_warning as warning
@@ -19,6 +20,10 @@ from .logger import get_logger
 
 
 logger = get_logger(__file__)
+
+
+class LogoutBackendException(Exception):
+    pass
 
 
 class ProxyServer(object):
@@ -179,6 +184,49 @@ class ProxyServer(object):
                 return True
         return False
 
+    def resize_win(self):
+        request.change_win_size_event.clear()
+        width = self.client_channel.win_width
+        height = self.client_channel.win_height
+        self.backend_channel.resize_pty(width=width, height=height)
+
+    def handle_client_data(self, client_data):
+        # Get output of the command
+        self.is_first_input = False
+        if self.in_input_state is False:
+            self.get_output()
+            del self.output_data[:]
+
+        self.in_input_state = True
+
+        if self.is_finish_input(client_data):
+            self.in_input_state = False
+            self.get_input()
+            del self.input_data[:]
+
+        if len(client_data) == 0:
+            raise LogoutBackendException()
+
+        self.backend_channel.send(client_data)
+
+    def handle_backend_data(self, backend_data):
+        if self.in_input_state:
+            self.input_data.append(backend_data)
+        else:
+            self.output_data.append(backend_data)
+
+        if len(backend_data) == 0:
+            self.client_channel.send(
+                wr('Disconnect from %s' % self.asset.ip))
+            logger.info('Logout from asset %(host)s: %(username)s' % {
+                'host': self.asset.ip,
+                'username': self.user.username,
+            })
+            raise LogoutBackendException()
+
+        self.client_channel.send(backend_data)
+
+
     def proxy(self):
         self.backend_channel = self.connect()
         if self.backend_channel is None:
@@ -192,59 +240,23 @@ class ProxyServer(object):
         while not self.stop_event.set():
             events = self.sel.select()  # block
 
-            if request.change_win_size_event.is_set():
-                request.change_win_size_event.clear()
-                width = self.client_channel.win_width
-                height = self.client_channel.win_height
-                self.backend_channel.resize_pty(width=width, height=height)
+            try:
+                if request.change_win_size_event.is_set():
+                    self.resize_win()
 
-            if  self.client_channel in [t[0].fileobj for t in events]:
-                # Get output of the command
-                self.is_first_input = False
-                if self.in_input_state is False:
-                    self.get_output()
-                    del self.output_data[:]
+                if  self.client_channel in [t[0].fileobj for t in events]:
+                    client_data = self.client_channel.recv(1024)
+                    self.handle_client_data(client_data)
 
-                self.in_input_state = True
-                client_data = self.client_channel.recv(1024)
-
-                if self.is_finish_input(client_data):
-                    self.in_input_state = False
-                    self.get_input()
-                    del self.input_data[:]
-
-                if len(client_data) == 0:
-                    break
-                self.backend_channel.send(client_data)
-
-            if  self.backend_channel in [t[0].fileobj for t in events]:
-                backend_data = self.backend_channel.recv(1024)
-                if self.in_input_state:
-                    self.input_data.append(backend_data)
-                else:
-                    self.output_data.append(backend_data)
-
-                if len(backend_data) == 0:
-                    self.client_channel.send(
-                        wr('Disconnect from %s' % self.asset.ip))
-                    logger.info('Logout from asset %(host)s: %(username)s' % {
-                        'host': self.asset.ip,
-                        'username': self.user.username,
-                    })
-                    break
-
-                self.client_channel.send(backend_data)
-                # Todo: record log send
-                # if self.is_match_ignore_command(self.input):
-                #     output = 'ignore output ...'
-                # else:
-                #     output = backend_data
-                # record_data = {
-                #     'proxy_log_id': self.proxy_log_id,
-                #     'output': output,
-                #     'timestamp': time.time(),
-                # }
-                # record_queue.put(record_data)
+                if  self.backend_channel in [t[0].fileobj for t in events]:
+                    backend_data = self.backend_channel.recv(1024)
+                    self.handle_backend_data(backend_data)
+            except LogoutBackendException:
+                break
+            except Exception as e:
+                # continue no matter what problem is got from the handling process
+                print(traceback.print_exc())
+                continue
 
         data = {
             "proxy_log_id": self.proxy_log_id,
